@@ -14,4 +14,4 @@ void FAngryUtilityModule::ShutdownModule()
 
 #undef LOCTEXT_NAMESPACE
 	
-IMPLEMENT_MODULE(FAngryUtilityModule, AngryAnimationTools)
+IMPLEMENT_MODULE(FAngryUtilityModule, AngryUtility)

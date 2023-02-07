@@ -21,9 +21,16 @@ public class AngryUtility : ModuleRules
 			{
 				"CoreUObject",
 				"Engine",
-				"Kismet",
+                "PhysicsCore",
+                "AIModule",
             }
 			);
 
+        if (Target.bBuildEditor)
+        {
+            PrivateDependencyModuleNames.AddRange(new string[] {
+                "Kismet"
+            });
+        }
     }
 }
