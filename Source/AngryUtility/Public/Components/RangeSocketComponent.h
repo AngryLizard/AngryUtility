@@ -1,4 +1,4 @@
-// The Gateway of Angry: Planes of Existence.
+
 
 #pragma once
 
