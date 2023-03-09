@@ -16,18 +16,33 @@ float ACustomCharacter::ComputeWalkableFloorZ_Implementation(const FHitResult& H
 	return Default;
 }
 
-FVector ACustomCharacter::MovementTick_Implementation(float DeltaTime, const FVector& Velocity, const FVector& InputAcceleration, float InputStrength, FVector& DesiredDirection, FRotator& DesiredTurnRate, float& Friction, float& MaxSpeed)
+void ACustomCharacter::MovementTick_Implementation(
+	float DeltaTime,
+	const FVector& InVelocity,
+	const FVector& InAcceleration,
+	const FRotator& InRotationRate,
+	float InStrength,
+	float InFriction,
+	float InMaxSpeed,
+	FVector& OutAcceleration,
+	FVector& DesiredDirection,
+	FRotator& DesiredTurnRate,
+	float& OutFriction,
+	float& OutMaxSpeed)
 {
-	MaxSpeed *= InputStrength;
+	OutMaxSpeed = InMaxSpeed * InStrength;
 
-	if (!InputAcceleration.IsZero())
+	DesiredDirection = InAcceleration;
+	DesiredTurnRate = InRotationRate;
+	OutFriction = InFriction;
+
+	if (!InAcceleration.IsZero())
 	{
-		// Friction affects our ability to change direction. This is only done for input acceleration, not path following.
-		const FVector AccelDir = InputAcceleration.GetSafeNormal();
-		const float VelSize = Velocity.Size();
-		const float FrictionFactor = FMath::Min(DeltaTime * Friction, 1.f) / DeltaTime;
-		const FVector BrakeAcceleration = (Velocity - AccelDir * VelSize) * FrictionFactor;
-		return InputAcceleration - BrakeAcceleration;
+		const FVector AccelDir = InAcceleration.GetSafeNormal();
+		const float VelSize = InVelocity.Size();
+		const float FrictionFactor = FMath::Min(DeltaTime * OutFriction, 1.f) / DeltaTime;
+		const FVector BrakeAcceleration = (InVelocity - AccelDir * VelSize) * FrictionFactor;
+		OutAcceleration = InAcceleration - BrakeAcceleration;
 	}
-	return FVector::ZeroVector;
+	OutAcceleration =  FVector::ZeroVector;
 }

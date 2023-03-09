@@ -120,9 +120,10 @@ void UCustomMovementComponent::CalcVelocity(float DeltaTime, float Friction, boo
 	// Apply move according to current mode
 	float DesiredMaxSpeed = MaxMovementSpeed;
 
-	DesiredDirection = Acceleration;
+	DesiredDirection = DesiredAcceleration;
 	DesiredTurnRate = RotationRate;
-	const FVector MoveAcceleration = CustomCharacterOwner->MovementTick(DeltaTime, Velocity, DesiredAcceleration, AnalogInputModifier, DesiredDirection, DesiredTurnRate, Friction, DesiredMaxSpeed);
+	FVector MoveAcceleration;
+	CustomCharacterOwner->MovementTick(DeltaTime, Velocity, DesiredAcceleration, RotationRate, AnalogInputModifier, Friction, DesiredMaxSpeed, MoveAcceleration, DesiredDirection, DesiredTurnRate, Friction, DesiredMaxSpeed);
 	
 	// Path following above didn't care about the analog modifier, but we do for everything else below, so get the fully modified value.
 	// Use max of requested speed and max speed if we modified the speed in ApplyRequestedMove above.
