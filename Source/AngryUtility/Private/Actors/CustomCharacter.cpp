@@ -44,5 +44,8 @@ void ACustomCharacter::MovementTick_Implementation(
 		const FVector BrakeAcceleration = (InVelocity - AccelDir * VelSize) * FrictionFactor;
 		OutAcceleration = InAcceleration - BrakeAcceleration;
 	}
-	OutAcceleration =  FVector::ZeroVector;
+	else
+	{
+		OutAcceleration = FVector::ZeroVector;
+	}
 }
