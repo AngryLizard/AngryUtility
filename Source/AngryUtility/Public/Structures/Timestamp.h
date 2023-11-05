@@ -1,4 +1,3 @@
-// Maintained by AngryLizard, netliz.net
 
 #pragma once
 
@@ -23,7 +22,7 @@ struct ANGRYUTILITY_API FTimestamp
 	void Clear(); // Set to 0
 	bool IsZero() const; // Whether it is 0
 
-	float Modf(float Period = (2*PI), float Speed = 1.0f, float Phase = 0.0f) const;
+	float Modf(float Period = (2 * PI), float Speed = 1.0f, float Phase = 0.0f) const;
 	float Value() const; // Continuous value for visuals, jumps every epoch
 	FString Print() const;
 

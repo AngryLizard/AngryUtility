@@ -6,7 +6,7 @@
 ACustomCharacter::ACustomCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UCustomMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
-	bUseControllerRotationYaw = true;
+	bUseControllerRotationYaw = false;
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
 }
@@ -20,22 +20,23 @@ void ACustomCharacter::MovementTick_Implementation(
 	float DeltaTime,
 	const FVector& InVelocity,
 	const FVector& InAcceleration,
-	const FRotator& InRotationRate,
 	float InStrength,
 	float InFriction,
 	float InMaxSpeed,
 	FVector& OutAcceleration,
-	FVector& DesiredDirection,
-	FRotator& DesiredTurnRate,
+	FVector& OutDesiredDirection,
+	FRotator& OutDesiredTurnRate,
 	float& OutFriction,
 	float& OutMaxSpeed)
 {
+	// Default implementation that should behave about the same as default character movement
 	OutMaxSpeed = InMaxSpeed * InStrength;
 
-	DesiredDirection = InAcceleration;
-	DesiredTurnRate = InRotationRate;
+	OutDesiredDirection = InAcceleration;
+	OutDesiredTurnRate = GetCharacterMovement()->RotationRate;
 	OutFriction = InFriction;
 
+	// Brake against going sideways so character doesn't slither when making turns
 	if (!InAcceleration.IsZero())
 	{
 		const FVector AccelDir = InAcceleration.GetSafeNormal();
@@ -43,9 +44,5 @@ void ACustomCharacter::MovementTick_Implementation(
 		const float FrictionFactor = FMath::Min(DeltaTime * OutFriction, 1.f) / DeltaTime;
 		const FVector BrakeAcceleration = (InVelocity - AccelDir * VelSize) * FrictionFactor;
 		OutAcceleration = InAcceleration - BrakeAcceleration;
-	}
-	else
-	{
-		OutAcceleration = FVector::ZeroVector;
 	}
 }

@@ -1,15 +1,14 @@
-// Maintained by AngryLizard, netliz.net
 
 #pragma once
 
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "DiscreteMath.generated.h"
+#include "DiscreteMathLibrary.generated.h"
 
 /**
- * 
+ * Collection of discrete maths operations not available in standard Unreal
  */
 UCLASS()
-class ANGRYUTILITY_API UDiscreteMath : public UBlueprintFunctionLibrary
+class ANGRYUTILITY_API UDiscreteMathLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 public:
@@ -34,7 +33,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Math", Meta = (Keywords = "C++"))
 		static int32 GetClassDistance(UClass* Base, UClass* Super);
 
-	/** Higher order smoothstep. Assumes X in [0, 1] */
+	/** Higher order smoothstep. Assumes X in [0, 1]. */
 	UFUNCTION(BlueprintPure, Category = "Math", meta = (Keywords = "C++"))
 		static float SmoothStep(float X, int32 Order);
 

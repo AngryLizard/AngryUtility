@@ -1,6 +1,6 @@
 // Maintained by AngryLizard, netliz.net
 
-#include "Math/IPC.h"
+#include "Structures/IPC.h"
 
 FVector4 FIPCPendulumProperties::PositionToPendulum(const FIPCPosition& Position, const FVector& UpDirection, const FVector& ForwardDirection) const
 {

@@ -1,7 +1,7 @@
 // Maintained by AngryLizard, netliz.net
 
-#include "Math/Samples.h"
-#include "Math/Matrix3x3.h"
+#include "Structures/Samples.h"
+#include "Structures/Matrix3x3.h"
 
 FSamples::FSamples()
 {

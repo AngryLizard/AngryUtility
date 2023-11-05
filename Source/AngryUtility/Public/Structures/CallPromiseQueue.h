@@ -1,4 +1,3 @@
-// Maintained by AngryLizard, netliz.net
 
 #pragma once
 
@@ -33,23 +32,23 @@ void FCallPromiseQueue<ErrorType>::Queue(FQueueDelegate Call)
 {
 	Await()
 		->Then([this, Call]()
+	{
+		if (!Call.IsBound())
 		{
-			if(!Call.IsBound())
-			{
-				return;
-			}
+			return;
+		}
 
-			Call.Execute()
-				->Finally([this]()
-				{
-					if (NextQueue.Num() > 0)
-					{
-						TCallPromisePtr<ErrorType, void> Next = NextQueue[0];
-						NextQueue.RemoveAt(0);
-						Next->Accept();
-					}
-				});
+		Call.Execute()
+			->Finally([this]()
+		{
+			if (NextQueue.Num() > 0)
+			{
+				TCallPromisePtr<ErrorType, void> Next = NextQueue[0];
+				NextQueue.RemoveAt(0);
+				Next->Accept();
+			}
 		});
+	});
 }
 
 template<typename ErrorType>

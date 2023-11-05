@@ -1,8 +1,7 @@
-// Maintained by AngryLizard, netliz.net
 
-#include "Math/DiscreteMath.h"
+#include "Libraries/DiscreteMathLibrary.h"
 
-bool UDiscreteMath::IsPrime(int32 Number)
+bool UDiscreteMathLibrary::IsPrime(int32 Number)
 {
 	// exclude most common divisors
 	if (Number == 2 || Number == 3) return true;
@@ -11,26 +10,26 @@ bool UDiscreteMath::IsPrime(int32 Number)
 	int d = 6;
 	while (d * d - 2 * d + 1 <= Number)
 	{
-		if (Number % (d - 1) == 0)return false;
-		if (Number % (d + 1) == 0)return false;
+		if (Number % (d - 1) == 0) return false;
+		if (Number % (d + 1) == 0) return false;
 		d += 6;
 	}
 	return true;
 }
 
-int UDiscreteMath::NextPrime(int32 Number)
+int UDiscreteMathLibrary::NextPrime(int32 Number)
 {
 	while (!IsPrime(++Number)) {}
 	return Number;
 }
 
-int32 UDiscreteMath::PosMod(int32 X, int32 N)
+int32 UDiscreteMathLibrary::PosMod(int32 X, int32 N)
 {
 	if (N == 0) return(0);
 	return((X % N + N) % N);
 }
 
-int32 UDiscreteMath::Log2(int32 X)
+int32 UDiscreteMathLibrary::Log2(int32 X)
 {
 	// From: https://stackoverflow.com/questions/994593/how-to-do-an-integer-log2-in-c
 #define S(k) if (X >= (1 << k)) { i += k; X >>= k; }
@@ -38,7 +37,7 @@ int32 UDiscreteMath::Log2(int32 X)
 #undef S
 }
 
-int32 UDiscreteMath::GetClassDistance(UClass* Base, UClass* Super)
+int32 UDiscreteMathLibrary::GetClassDistance(UClass* Base, UClass* Super)
 {
 	int32 Distance = 0;
 	for (const UStruct* Struct = Base; Struct; Struct = Struct->GetSuperStruct())
@@ -51,7 +50,7 @@ int32 UDiscreteMath::GetClassDistance(UClass* Base, UClass* Super)
 	return Distance;
 }
 
-float UDiscreteMath::SmoothStep(float X, int32 Order)
+float UDiscreteMathLibrary::SmoothStep(float X, int32 Order)
 {
 	// See https://en.wikipedia.org/wiki/Smoothstep
 	float Out = 0.0f;
@@ -64,7 +63,7 @@ float UDiscreteMath::SmoothStep(float X, int32 Order)
 	return Out;
 }
 
-float UDiscreteMath::PascalTriangle(int32 A, int32 B)
+float UDiscreteMathLibrary::PascalTriangle(int32 A, int32 B)
 {
 	float Out = 1;
 	for (int32 i = 0; i < B; ++i)
@@ -74,7 +73,7 @@ float UDiscreteMath::PascalTriangle(int32 A, int32 B)
 	return Out;
 }
 
-float UDiscreteMath::IntPow(float Base, int32 Exp)
+float UDiscreteMathLibrary::IntPow(float Base, int32 Exp)
 {
 	// See https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int
 	float Out = 1.0f;

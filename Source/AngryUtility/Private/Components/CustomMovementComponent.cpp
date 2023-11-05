@@ -22,6 +22,7 @@ void UCustomMovementComponent::PostLoad()
 	CustomCharacterOwner = Cast<ACustomCharacter>(PawnOwner);
 }
 
+// Partially copied from UCharacterMovementComponent::IsWalkable
 bool UCustomMovementComponent::IsWalkable(const FHitResult& Hit) const
 {
 	if (!Hit.IsValidBlockingHit())
@@ -55,6 +56,7 @@ bool UCustomMovementComponent::IsWalkable(const FHitResult& Hit) const
 	return true;
 }
 
+// Partially copied from UCharacterMovementComponent::CalcVelocity
 void UCustomMovementComponent::CalcVelocity(float DeltaTime, float Friction, bool bFluid, float BrakingDeceleration)
 {
 	// Do not update velocity when using root motion or when SimulatedProxy and not simulating root motion - SimulatedProxy are repped their Velocity
@@ -123,8 +125,8 @@ void UCustomMovementComponent::CalcVelocity(float DeltaTime, float Friction, boo
 	DesiredDirection = DesiredAcceleration;
 	DesiredTurnRate = RotationRate;
 	FVector MoveAcceleration;
-	CustomCharacterOwner->MovementTick(DeltaTime, Velocity, DesiredAcceleration, RotationRate, AnalogInputModifier, Friction, DesiredMaxSpeed, MoveAcceleration, DesiredDirection, DesiredTurnRate, Friction, DesiredMaxSpeed);
-	
+	CustomCharacterOwner->MovementTick(DeltaTime, Velocity, DesiredAcceleration, AnalogInputModifier, Friction, DesiredMaxSpeed, MoveAcceleration, DesiredDirection, DesiredTurnRate, Friction, DesiredMaxSpeed);
+
 	// Path following above didn't care about the analog modifier, but we do for everything else below, so get the fully modified value.
 	// Use max of requested speed and max speed if we modified the speed in ApplyRequestedMove above.
 	//const float MaxSpeed = FMath::Max3(RequestedSpeed, DesiredMaxSpeed, GetMinAnalogSpeed());
@@ -142,7 +144,7 @@ void UCustomMovementComponent::CalcVelocity(float DeltaTime, float Friction, boo
 		const float ActualBrakingFriction = (bUseSeparateBrakingFriction ? BrakingFriction : Friction);
 		ApplyVelocityBraking(DeltaTime, ActualBrakingFriction, BrakingDeceleration);
 
-		// Don't allow braking to lower us below max speed if we started above it.
+		// Don't allow braking to lower us below max speed if we started above it. < No idea what this means but it's in the UE source code so we keep it
 		if (bVelocityOverMax && Velocity.SizeSquared() < FMath::Square(MaxSpeed) && FVector::DotProduct(Acceleration, OldVelocity) > 0.0f)
 		{
 			Velocity = OldVelocity.GetSafeNormal() * MaxSpeed;
@@ -158,12 +160,14 @@ void UCustomMovementComponent::CalcVelocity(float DeltaTime, float Friction, boo
 	}
 }
 
+// Partially copied from UCharacterMovementComponent::ComputeMovementAxisDeltaRotation
 float ComputeMovementAxisDeltaRotation(float InAxisRotationRate, float DeltaTime)
 {
 	// Values over 360 don't do anything, see FMath::FixedTurn. However we are trying to avoid giant floats from overflowing other calculations.
 	return (InAxisRotationRate >= 0.f) ? FMath::Min(InAxisRotationRate * DeltaTime, 360.f) : 360.f;
 }
 
+// Partially copied from UCharacterMovementComponent::ComputeOrientToMovementRotation
 FRotator UCustomMovementComponent::ComputeOrientToMovementRotation(const FRotator& CurrentRotation, float DeltaTime, FRotator& DeltaRotation) const
 {
 	DeltaRotation = FRotator(

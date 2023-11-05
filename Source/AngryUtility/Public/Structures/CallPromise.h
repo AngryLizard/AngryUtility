@@ -3,9 +3,20 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include <type_traits>
+#include <concepts>
 
 template<typename ErrorType>
 class TCallPromiseBase;
+
+template<typename ErrorType, typename FuncType, typename ...Args>
+concept IsPromisePtr = std::is_convertible_v<typename std::invoke_result<FuncType, Args...>::type, TSharedPtr<TCallPromiseBase<ErrorType>>>;
+
+template<typename ErrorType, typename FuncType, typename ...Args>
+concept IsVoidPtr = std::is_void_v<typename std::invoke_result<FuncType, Args...>::type>;
+
+template<typename ErrorType, typename FuncType, typename ...Args>
+concept IsValuePtr = not IsPromisePtr<ErrorType, FuncType, Args...> and not IsVoidPtr<ErrorType, FuncType, Args...>;
 
 /**
 * Conditions for SFINAE to differentiate between different lambda return types,
@@ -37,29 +48,29 @@ using TCallPromisePtr = TSharedPtr<TCallPromise<ErrorType, PromiseType>>;
 template<typename ErrorType>
 class TCallPromiseBase : public TSharedFromThis<TCallPromiseBase<ErrorType>>
 {
+public:
 	using FRejectDelegate = TDelegate<void(const ErrorType&)>;
 	using FFinallyDelegate = TDelegate<void()>;
 
-public:
 	void Reject(const ErrorType& Error);
 	void Append(TSharedPtr<TCallPromiseBase> Promise, FRejectDelegate Reject);
 
 	void Finalize();
 	void Append(TSharedPtr<TCallPromiseBase> Promise, FFinallyDelegate Finally);
 
-	template<typename FuncType>	auto Catch(FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae = nullptr);
-	template<typename FuncType>	auto Catch(FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae = nullptr);
-	template<typename FuncType> auto Catch(FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType>	auto WeakCatch(UserClass* Object, FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType>	auto WeakCatch(UserClass* Object, FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType> auto WeakCatch(UserClass* Object, FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae = nullptr);
-
-	template<typename FuncType>	auto Finally(FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
-	template<typename FuncType>	auto Finally(FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
-	template<typename FuncType> auto Finally(FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType>	auto WeakFinally(UserClass* Object, FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType>	auto WeakFinally(UserClass* Object, FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType> auto WeakFinally(UserClass* Object, FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
+	template<typename FuncType>	requires IsPromisePtr<ErrorType, FuncType, ErrorType>	auto Catch(FuncType Func);
+	template<typename FuncType>	requires IsValuePtr<ErrorType, FuncType, ErrorType>		auto Catch(FuncType Func);
+	template<typename FuncType> requires IsVoidPtr<ErrorType, FuncType, ErrorType>		auto Catch(FuncType Func);
+	template<typename UserClass, typename FuncType>	requires IsPromisePtr<ErrorType, FuncType, ErrorType>	auto WeakCatch(UserClass* Object, FuncType Func);
+	template<typename UserClass, typename FuncType>	requires IsValuePtr<ErrorType, FuncType, ErrorType>		auto WeakCatch(UserClass* Object, FuncType Func);
+	template<typename UserClass, typename FuncType> requires IsVoidPtr<ErrorType, FuncType, ErrorType>		auto WeakCatch(UserClass* Object, FuncType Func);
+	
+	template<typename FuncType>	requires IsPromisePtr<ErrorType, FuncType>	auto Finally(FuncType Func);
+	template<typename FuncType>	requires IsValuePtr<ErrorType, FuncType>	auto Finally(FuncType Func);
+	template<typename FuncType> requires IsVoidPtr<ErrorType, FuncType>		auto Finally(FuncType Func);
+	template<typename UserClass, typename FuncType>	requires IsPromisePtr<ErrorType, FuncType, ErrorType>	auto WeakFinally(UserClass* Object, FuncType Func);
+	template<typename UserClass, typename FuncType>	requires IsValuePtr<ErrorType, FuncType, ErrorType>		auto WeakFinally(UserClass* Object, FuncType Func);
+	template<typename UserClass, typename FuncType> requires IsVoidPtr<ErrorType, FuncType, ErrorType>		auto WeakFinally(UserClass* Object, FuncType Func);
 
 protected:
 	bool bIsFinalized = false;
@@ -82,9 +93,9 @@ class TCallPromise : public TCallPromiseBase<ErrorType>
 	template <typename, typename>
 	friend class TCallPromise;
 
+public:
 	using FAcceptDelegate = TDelegate<void(const PromiseType&)>;
 
-public:
 	static TCallPromisePtr<ErrorType, PromiseType> Create();
 	static TCallPromisePtr<ErrorType, PromiseType> Accepted(const PromiseType& Value);
 	static TCallPromisePtr<ErrorType, PromiseType> Rejected(const ErrorType& Error);
@@ -93,12 +104,12 @@ public:
 	void Merge(TCallPromisePtr<ErrorType, PromiseType> Promise);
 	void Append(TSharedPtr<TCallPromiseBase<ErrorType>> Promise, FAcceptDelegate Accept);
 
-	template<typename FuncType>	auto Then(FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae = nullptr);
-	template<typename FuncType>	auto Then(FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae = nullptr);
-	template<typename FuncType> auto Then(FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType>	auto WeakThen(UserClass* Object, FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType>	auto WeakThen(UserClass* Object, FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType> auto WeakThen(UserClass* Object, FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae = nullptr);
+	template<typename FuncType>	requires IsPromisePtr<ErrorType, FuncType, PromiseType>		auto Then(FuncType Func);
+	template<typename FuncType>	requires IsValuePtr<ErrorType, FuncType, PromiseType>		auto Then(FuncType Func);
+	template<typename FuncType> requires IsVoidPtr<ErrorType, FuncType, PromiseType>		auto Then(FuncType Func);
+	template<typename UserClass, typename FuncType>	requires IsPromisePtr<ErrorType, FuncType, PromiseType>		auto WeakThen(UserClass* Object, FuncType Func);
+	template<typename UserClass, typename FuncType>	requires IsValuePtr<ErrorType, FuncType, PromiseType>		auto WeakThen(UserClass* Object, FuncType Func);
+	template<typename UserClass, typename FuncType> requires IsVoidPtr<ErrorType, FuncType, PromiseType>		auto WeakThen(UserClass* Object, FuncType Func);
 
 private:
 	TCallPromise() {}
@@ -119,9 +130,9 @@ class TCallPromise<ErrorType, void> : public TCallPromiseBase<ErrorType>
 	template <typename, typename>
 	friend class TCallPromise;
 
+public:
 	using FAcceptDelegate = TDelegate<void()>;
 
-public:
 	static TCallPromisePtr<ErrorType, void> Create();
 	static TCallPromisePtr<ErrorType, void> Accepted();
 	static TCallPromisePtr<ErrorType, void> Rejected(const ErrorType& Error);
@@ -130,12 +141,12 @@ public:
 	void Merge(TCallPromisePtr<ErrorType, void> Promise);
 	void Append(TSharedPtr<TCallPromiseBase<ErrorType>> Promise, FAcceptDelegate Accept);
 
-	template<typename FuncType>	auto Then(FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
-	template<typename FuncType>	auto Then(FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
-	template<typename FuncType> auto Then(FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType>	auto WeakThen(UserClass* Object, FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType>	auto WeakThen(UserClass* Object, FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
-	template<typename UserClass, typename FuncType> auto WeakThen(UserClass* Object, FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType(Func)> sfinae = nullptr);
+	template<typename FuncType>	requires IsPromisePtr<ErrorType, FuncType>	auto Then(FuncType Func);
+	template<typename FuncType>	requires IsValuePtr<ErrorType, FuncType>	auto Then(FuncType Func);
+	template<typename FuncType> requires IsVoidPtr<ErrorType, FuncType>		auto Then(FuncType Func);
+	template<typename UserClass, typename FuncType>	requires IsPromisePtr<ErrorType, FuncType>	auto WeakThen(UserClass* Object, FuncType Func);
+	template<typename UserClass, typename FuncType>	requires IsValuePtr<ErrorType, FuncType>	auto WeakThen(UserClass* Object, FuncType Func);
+	template<typename UserClass, typename FuncType> requires IsVoidPtr<ErrorType, FuncType>		auto WeakThen(UserClass* Object, FuncType Func);
 
 private:
 	TCallPromise() {}
@@ -149,24 +160,24 @@ private:
 template<typename ErrorType>
 void TCallPromiseBase<ErrorType>::Reject(const ErrorType& Error)
 {
-	RejectError = Error;
-	if (RejectDelegate.IsBound())
+	this->RejectError = Error;
+	if (this->RejectDelegate.IsBound())
 	{
-		RejectDelegate.ExecuteIfBound(Error);
-		RejectDelegate.Unbind();
+		this->RejectDelegate.ExecuteIfBound(Error);
+		this->RejectDelegate.Unbind();
 	}
 	else
 	{
-		Finalize();
+		this->Finalize();
 	}
 }
 
 template<typename ErrorType>
 void TCallPromiseBase<ErrorType>::Finalize()
 {
-	bIsFinalized = true;
-	FinallyDelegate.ExecuteIfBound();
-	FinallyDelegate.Unbind();
+	this->bIsFinalized = true;
+	this->FinallyDelegate.ExecuteIfBound();
+	this->FinallyDelegate.Unbind();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -175,96 +186,102 @@ void TCallPromiseBase<ErrorType>::Finalize()
 
 template<typename ErrorType>
 template<typename FuncType>
-auto TCallPromiseBase<ErrorType>::Catch(FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae)
+requires IsPromisePtr<ErrorType, FuncType, ErrorType>
+auto TCallPromiseBase<ErrorType>::Catch(FuncType Func)
 {
-	using ReturnPromiseType = DeclReturnType_OneParam(Func, ErrorType)::ElementType;
+	using ReturnPromiseType = std::invoke_result<FuncType, ErrorType>::type::ElementType;
 	TSharedPtr<ReturnPromiseType> Promise = ReturnPromiseType::Create();
 
-	Append(Promise, FRejectDelegate::CreateLambda(
+	this->Append(Promise, FRejectDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise](const ErrorType& Error)
-		{
-			Promise->Merge(Func(Error));
-		}));
+	{
+		Promise->Merge(Func(Error));
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename FuncType>
-auto TCallPromiseBase<ErrorType>::Catch(FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae)
+requires IsValuePtr<ErrorType, FuncType, ErrorType>
+auto TCallPromiseBase<ErrorType>::Catch(FuncType Func)
 {
-	using ReturnType = DeclReturnType_OneParam(Func, ErrorType);
+	using ReturnType = std::invoke_result<FuncType, ErrorType>::type;
 	TCallPromisePtr<ErrorType, ReturnType> Promise = TCallPromise<ErrorType, ReturnType>::Create();
 
-	Append(Promise, FRejectDelegate::CreateLambda(
+	this->Append(Promise, FRejectDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise](const ErrorType& Error)
-		{
-			Promise->Accept(Func(Error));
-		}));
+	{
+		Promise->Accept(Func(Error));
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename FuncType>
-auto TCallPromiseBase<ErrorType>::Catch(FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae)
+requires IsVoidPtr<ErrorType, FuncType, ErrorType>
+auto TCallPromiseBase<ErrorType>::Catch(FuncType Func)
 {
 	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 
-	Append(Promise, FRejectDelegate::CreateLambda(
+	this->Append(Promise, FRejectDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise](const ErrorType& Error)
-		{
-			Func(Error);
-			Promise->Accept();
-		}));
+	{
+		Func(Error);
+		Promise->Accept();
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename UserClass, typename FuncType>
-auto TCallPromiseBase<ErrorType>::WeakCatch(UserClass* Object, FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae)
+requires IsPromisePtr<ErrorType, FuncType, ErrorType>
+auto TCallPromiseBase<ErrorType>::WeakCatch(UserClass* Object, FuncType Func)
 {
-	using ReturnPromiseType = DeclReturnType_OneParam(Func, ErrorType)::ElementType;
+	using ReturnPromiseType = std::invoke_result<FuncType, ErrorType>::type::ElementType;
 	TSharedPtr<ReturnPromiseType> Promise = ReturnPromiseType::Create();
 
-	Append(Promise, FRejectDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FRejectDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise](const ErrorType& Error)
-		{
-			Promise->Merge(Func(Error));
-		}));
+	{
+		Promise->Merge(Func(Error));
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename UserClass, typename FuncType>
-auto TCallPromiseBase<ErrorType>::WeakCatch(UserClass* Object, FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae)
+requires IsValuePtr<ErrorType, FuncType, ErrorType>
+auto TCallPromiseBase<ErrorType>::WeakCatch(UserClass* Object, FuncType Func)
 {
-	using ReturnType = DeclReturnType_OneParam(Func, ErrorType);
+	using ReturnType = std::invoke_result<FuncType, ErrorType>::type;
 	TCallPromisePtr<ErrorType, ReturnType> Promise = TCallPromise<ErrorType, ReturnType>::Create();
 
-	Append(Promise, FRejectDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FRejectDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise](const ErrorType& Error)
-		{
-			Promise->Accept(Func(Error));
-		}));
+	{
+		Promise->Accept(Func(Error));
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename UserClass, typename FuncType>
-auto TCallPromiseBase<ErrorType>::WeakCatch(UserClass* Object, FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType_OneParam(Func, ErrorType)> sfinae)
+requires IsVoidPtr<ErrorType, FuncType, ErrorType>
+auto TCallPromiseBase<ErrorType>::WeakCatch(UserClass* Object, FuncType Func)
 {
 	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 
-	Append(Promise, FRejectDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FRejectDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise](const ErrorType& Error)
-		{
-			Func(Error);
-			Promise->Accept();
-		}));
+	{
+		Func(Error);
+		Promise->Accept();
+	}));
 
 	return Promise;
 }
@@ -272,23 +289,23 @@ auto TCallPromiseBase<ErrorType>::WeakCatch(UserClass* Object, FuncType Func, En
 template<typename ErrorType>
 void TCallPromiseBase<ErrorType>::Append(TSharedPtr<TCallPromiseBase> Promise, FRejectDelegate Reject)
 {
-	if (RejectError.IsSet())
+	if (this->RejectError.IsSet())
 	{
-		Reject.ExecuteIfBound(RejectError.GetValue());
+		Reject.ExecuteIfBound(this->RejectError.GetValue());
 		return;
 	}
 
-	if (bIsFinalized)
+	if (this->bIsFinalized)
 	{
 		Promise->Finalize();
 		return;
 	}
 
-	check(!RejectDelegate.IsBound());
-	RejectDelegate = MoveTemp(Reject);
+	check(!this->RejectDelegate.IsBound());
+	this->RejectDelegate = MoveTemp(Reject);
 
-	check(!FinallyDelegate.IsBound());
-	FinallyDelegate = FFinallyDelegate::CreateLambda([Promise]()
+	check(!this->FinallyDelegate.IsBound());
+	this->FinallyDelegate = FFinallyDelegate::CreateLambda([Promise]()
 	{
 		Promise->Finalize();
 	});
@@ -300,96 +317,102 @@ void TCallPromiseBase<ErrorType>::Append(TSharedPtr<TCallPromiseBase> Promise, F
 
 template<typename ErrorType>
 template<typename FuncType>
-auto TCallPromiseBase<ErrorType>::Finally(FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsPromisePtr<ErrorType, FuncType>
+auto TCallPromiseBase<ErrorType>::Finally(FuncType Func)
 {
-	using ReturnPromiseType = DeclReturnType_OneParam(Func, ErrorType)::ElementType;
+	using ReturnPromiseType = std::invoke_result<FuncType>::type::ElementType;
 	TSharedPtr<ReturnPromiseType> Promise = ReturnPromiseType::Create();
 
-	Append(Promise, FFinallyDelegate::CreateLambda(
+	this->Append(Promise, FFinallyDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Promise->Merge(Func());
-		}));
+	{
+		Promise->Merge(Func());
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename FuncType>
-auto TCallPromiseBase<ErrorType>::Finally(FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsValuePtr<ErrorType, FuncType>
+auto TCallPromiseBase<ErrorType>::Finally(FuncType Func)
 {
-	using ReturnType = DeclReturnType_OneParam(Func, ErrorType);
+	using ReturnType = std::invoke_result<FuncType>::type;
 	TCallPromisePtr<ErrorType, ReturnType> Promise = TCallPromise<ErrorType, ReturnType>::Create();
 
-	Append(Promise, FFinallyDelegate::CreateLambda(
+	this->Append(Promise, FFinallyDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Promise->Accept(Func());
-		}));
+	{
+		Promise->Accept(Func());
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename FuncType>
-auto TCallPromiseBase<ErrorType>::Finally(FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsVoidPtr<ErrorType, FuncType>
+auto TCallPromiseBase<ErrorType>::Finally(FuncType Func)
 {
 	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 
-	Append(Promise, FFinallyDelegate::CreateLambda(
+	this->Append(Promise, FFinallyDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Func();
-			Promise->Accept();
-		}));
+	{
+		Func();
+		Promise->Accept();
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename UserClass, typename FuncType>
-auto TCallPromiseBase<ErrorType>::WeakFinally(UserClass* Object, FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsPromisePtr<ErrorType, FuncType, ErrorType>
+auto TCallPromiseBase<ErrorType>::WeakFinally(UserClass* Object, FuncType Func)
 {
-	using ReturnPromiseType = DeclReturnType(Func)::ElementType;
+	using ReturnPromiseType = std::invoke_result<FuncType>::type::ElementType;
 	TSharedPtr<ReturnPromiseType> Promise = ReturnPromiseType::Create();
 
-	Append(Promise, FFinallyDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FFinallyDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Promise->Merge(Func());
-		}));
+	{
+		Promise->Merge(Func());
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename UserClass, typename FuncType>
-auto TCallPromiseBase<ErrorType>::WeakFinally(UserClass* Object, FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsValuePtr<ErrorType, FuncType, ErrorType>
+auto TCallPromiseBase<ErrorType>::WeakFinally(UserClass* Object, FuncType Func)
 {
-	using ReturnType = DeclReturnType(Func);
+	using ReturnType = std::invoke_result<FuncType>::type;
 	TCallPromisePtr<ErrorType, ReturnType> Promise = TCallPromise<ErrorType, ReturnType>::Create();
 
-	Append(Promise, FFinallyDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FFinallyDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Promise->Accept(Func());
-		}));
+	{
+		Promise->Accept(Func());
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename UserClass, typename FuncType>
-auto TCallPromiseBase<ErrorType>::WeakFinally(UserClass* Object, FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsVoidPtr<ErrorType, FuncType, ErrorType>
+auto TCallPromiseBase<ErrorType>::WeakFinally(UserClass* Object, FuncType Func)
 {
 	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 
-	Append(Promise, FFinallyDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FFinallyDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Func();
-			Promise->Accept();
-		}));
+	{
+		Func();
+		Promise->Accept();
+	}));
 
 	return Promise;
 }
@@ -397,14 +420,14 @@ auto TCallPromiseBase<ErrorType>::WeakFinally(UserClass* Object, FuncType Func, 
 template<typename ErrorType>
 void TCallPromiseBase<ErrorType>::Append(TSharedPtr<TCallPromiseBase> Promise, FFinallyDelegate Finally)
 {
-	if (bIsFinalized)
+	if (this->bIsFinalized)
 	{
 		Finally.ExecuteIfBound();
 		return;
 	}
 
-	check(!FinallyDelegate.IsBound());
-	FinallyDelegate = MoveTemp(Finally);
+	check(!this->FinallyDelegate.IsBound());
+	this->FinallyDelegate = MoveTemp(Finally);
 }
 
 // TCallPromise<ErrorType, PromiseType> Implementation
@@ -434,15 +457,15 @@ TCallPromisePtr<ErrorType, PromiseType> TCallPromise<ErrorType, PromiseType>::Re
 template<typename ErrorType, typename PromiseType>
 void TCallPromise<ErrorType, PromiseType>::Accept(const PromiseType& Value)
 {
-	AcceptValue = Value;
-	if (AcceptDelegate.IsBound())
+	this->AcceptValue = Value;
+	if (this->AcceptDelegate.IsBound())
 	{
-		AcceptDelegate.ExecuteIfBound(Value);
-		AcceptDelegate.Unbind();
+		this->AcceptDelegate.ExecuteIfBound(Value);
+		this->AcceptDelegate.Unbind();
 	}
 	else
 	{
-		Finalize();
+		this->Finalize();
 	}
 }
 
@@ -452,96 +475,102 @@ void TCallPromise<ErrorType, PromiseType>::Accept(const PromiseType& Value)
 
 template<typename ErrorType, typename PromiseType>
 template<typename FuncType>
-auto TCallPromise<ErrorType, PromiseType>::Then(FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae)
+requires IsPromisePtr<ErrorType, FuncType, PromiseType>
+auto TCallPromise<ErrorType, PromiseType>::Then(FuncType Func)
 {
-	using ReturnPromiseType = DeclReturnType_OneParam(Func, PromiseType)::ElementType;
+	using ReturnPromiseType = std::invoke_result<FuncType, PromiseType>::type::ElementType;
 	TSharedPtr<ReturnPromiseType> Promise = ReturnPromiseType::Create();
 
-	Append(Promise, FAcceptDelegate::CreateLambda(
+	this->Append(Promise, FAcceptDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise](const PromiseType& Result)
-		{
-			Promise->Merge(Func(Result));
-		}));
+	{
+		Promise->Merge(Func(Result));
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType, typename PromiseType>
 template<typename FuncType>
-auto TCallPromise<ErrorType, PromiseType>::Then(FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae)
+requires IsValuePtr<ErrorType, FuncType, PromiseType>
+auto TCallPromise<ErrorType, PromiseType>::Then(FuncType Func)
 {
-	using ReturnType = DeclReturnType_OneParam(Func, PromiseType);
+	using ReturnType = std::invoke_result<FuncType, PromiseType>::type;
 	TCallPromisePtr<ErrorType, ReturnType> Promise = TCallPromise<ErrorType, ReturnType>::Create();
 
-	Append(Promise, FAcceptDelegate::CreateLambda(
+	this->Append(Promise, FAcceptDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise](const PromiseType& Result)
-		{
-			Promise->Accept(Func(Result));
-		}));
+	{
+		Promise->Accept(Func(Result));
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType, typename PromiseType>
 template<typename FuncType>
-auto TCallPromise<ErrorType, PromiseType>::Then(FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae)
+requires IsVoidPtr<ErrorType, FuncType, PromiseType>
+auto TCallPromise<ErrorType, PromiseType>::Then(FuncType Func)
 {
 	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 
-	Append(Promise, FAcceptDelegate::CreateLambda(
+	this->Append(Promise, FAcceptDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise](const PromiseType& Result)
-		{
-			Func(Result);
-			Promise->Accept();
-		}));
+	{
+		Func(Result);
+		Promise->Accept();
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType, typename PromiseType>
 template<typename UserClass, typename FuncType>
-auto TCallPromise<ErrorType, PromiseType>::WeakThen(UserClass* Object, FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae)
+requires IsPromisePtr<ErrorType, FuncType, PromiseType>
+auto TCallPromise<ErrorType, PromiseType>::WeakThen(UserClass* Object, FuncType Func)
 {
-	using ReturnPromiseType = DeclReturnType_OneParam(Func, PromiseType)::ElementType;
+	using ReturnPromiseType = std::invoke_result<FuncType, PromiseType>::type::ElementType;
 	TSharedPtr<ReturnPromiseType> Promise = ReturnPromiseType::Create();
 
-	Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise](const PromiseType& Result)
-		{
-			Promise->Merge(Func(Result));
-		}));
+	{
+		Promise->Merge(Func(Result));
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType, typename PromiseType>
 template<typename UserClass, typename FuncType>
-auto TCallPromise<ErrorType, PromiseType>::WeakThen(UserClass* Object, FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae)
+requires IsValuePtr<ErrorType, FuncType, PromiseType>
+auto TCallPromise<ErrorType, PromiseType>::WeakThen(UserClass* Object, FuncType Func)
 {
-	using ReturnType = DeclReturnType_OneParam(Func, PromiseType);
+	using ReturnType = std::invoke_result<FuncType, PromiseType>::type;
 	TCallPromisePtr<ErrorType, ReturnType> Promise = TCallPromise<ErrorType, ReturnType>::Create();
 
-	Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise](const PromiseType& Result)
-		{
-			Promise->Accept(Func(Result));
-		}));
+	{
+		Promise->Accept(Func(Result));
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType, typename PromiseType>
 template<typename UserClass, typename FuncType>
-auto TCallPromise<ErrorType, PromiseType>::WeakThen(UserClass* Object, FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType_OneParam(Func, PromiseType)> sfinae)
+requires IsVoidPtr<ErrorType, FuncType, PromiseType>
+auto TCallPromise<ErrorType, PromiseType>::WeakThen(UserClass* Object, FuncType Func)
 {
 	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 
-	Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise](const PromiseType& Result)
-		{
-			Func(Result);
-			Promise->Accept();
-		}));
+	{
+		Func(Result);
+		Promise->Accept();
+	}));
 
 	return Promise;
 }
@@ -549,35 +578,35 @@ auto TCallPromise<ErrorType, PromiseType>::WeakThen(UserClass* Object, FuncType 
 template<typename ErrorType, typename PromiseType>
 void TCallPromise<ErrorType, PromiseType>::Append(TSharedPtr<TCallPromiseBase<ErrorType>> Promise, FAcceptDelegate Accept)
 {
-	if (AcceptValue.IsSet())
+	if (this->AcceptValue.IsSet())
 	{
-		Accept.ExecuteIfBound(AcceptValue.GetValue());
+		Accept.ExecuteIfBound(this->AcceptValue.GetValue());
 		return;
 	}
 
-	if (RejectError.IsSet())
+	if (this->RejectError.IsSet())
 	{
-		Promise->Reject(RejectError.GetValue());
+		Promise->Reject(this->RejectError.GetValue());
 		return;
 	}
 
-	if (bIsFinalized)
+	if (this->bIsFinalized)
 	{
 		Promise->Finalize();
 		return;
 	}
-	
-	check(!AcceptDelegate.IsBound());
-	AcceptDelegate = MoveTemp(Accept);
 
-	check(!RejectDelegate.IsBound());
-	RejectDelegate = FRejectDelegate::CreateLambda([Promise](const ErrorType& Error)
+	check(!this->AcceptDelegate.IsBound());
+	this->AcceptDelegate = MoveTemp(Accept);
+
+	check(!this->RejectDelegate.IsBound());
+	this->RejectDelegate = TCallPromiseBase<ErrorType>::FRejectDelegate::CreateLambda([Promise](const ErrorType& Error)
 	{
 		Promise->Reject(Error);
 	});
 
-	check(!FinallyDelegate.IsBound());
-	FinallyDelegate = FFinallyDelegate::CreateLambda([Promise]()
+	check(!this->FinallyDelegate.IsBound());
+	this->FinallyDelegate = TCallPromiseBase<ErrorType>::FFinallyDelegate::CreateLambda([Promise]()
 	{
 		Promise->Finalize();
 	});
@@ -588,7 +617,7 @@ void TCallPromise<ErrorType, PromiseType>::Merge(TCallPromisePtr<ErrorType, Prom
 {
 	if (Promise->RejectError.IsSet())
 	{
-		Reject(Promise->RejectError.GetValue());
+		this->Reject(Promise->RejectError.GetValue());
 		return;
 	}
 
@@ -600,25 +629,25 @@ void TCallPromise<ErrorType, PromiseType>::Merge(TCallPromisePtr<ErrorType, Prom
 
 	if (Promise->bIsFinalized)
 	{
-		Finalize();
+		this->Finalize();
 		return;
 	}
 
 	check(!Promise->AcceptDelegate.IsBound());
-	Promise->AcceptDelegate = FAcceptDelegate::CreateLambda([this, SelfPromise = AsShared()](const PromiseType& Result)
+	Promise->AcceptDelegate = FAcceptDelegate::CreateLambda([this, SelfPromise = this->AsShared()](const PromiseType& Result)
 	{
 		// SelfPromise prevents deletion
-		Accept(Result);
+		this->Accept(Result);
 	});
 
 	check(!Promise->RejectDelegate.IsBound());
-	Promise->RejectDelegate = FRejectDelegate::CreateLambda([SelfPromise = AsShared()](const ErrorType& Error)
+	Promise->RejectDelegate = TCallPromiseBase<ErrorType>::FRejectDelegate::CreateLambda([SelfPromise = this->AsShared()](const ErrorType& Error)
 	{
 		SelfPromise->Reject(Error);
 	});
 
 	check(!Promise->FinallyDelegate.IsBound());
-	Promise->FinallyDelegate = FFinallyDelegate::CreateLambda([SelfPromise = AsShared()]()
+	Promise->FinallyDelegate = TCallPromiseBase<ErrorType>::FFinallyDelegate::CreateLambda([SelfPromise = this->AsShared()]()
 	{
 		SelfPromise->Finalize();
 	});
@@ -635,7 +664,7 @@ TCallPromisePtr<ErrorType, void> TCallPromise<ErrorType, void>::Create()
 template<typename ErrorType>
 TCallPromisePtr<ErrorType, void> TCallPromise<ErrorType, void>::Accepted()
 {
-	TCallPromisePtr<ErrorType, void> Promise = Create();
+	TCallPromisePtr<ErrorType, void> Promise = this->Create();
 	Promise->Accept();
 	return Promise;
 }
@@ -643,7 +672,7 @@ TCallPromisePtr<ErrorType, void> TCallPromise<ErrorType, void>::Accepted()
 template<typename ErrorType>
 TCallPromisePtr<ErrorType, void> TCallPromise<ErrorType, void>::Rejected(const ErrorType& Error)
 {
-	TCallPromisePtr<ErrorType, void> Promise = Create();
+	TCallPromisePtr<ErrorType, void> Promise = this->Create();
 	Promise->Reject(Error);
 	return Promise;
 }
@@ -651,15 +680,15 @@ TCallPromisePtr<ErrorType, void> TCallPromise<ErrorType, void>::Rejected(const E
 template<typename ErrorType>
 void TCallPromise<ErrorType, void>::Accept()
 {
-	bIsAccepted = true;
-	if (AcceptDelegate.IsBound())
+	this->bIsAccepted = true;
+	if (this->AcceptDelegate.IsBound())
 	{
-		AcceptDelegate.ExecuteIfBound();
-		AcceptDelegate.Unbind();
+		this->AcceptDelegate.ExecuteIfBound();
+		this->AcceptDelegate.Unbind();
 	}
 	else
 	{
-		Finalize();
+		this->Finalize();
 	}
 }
 
@@ -669,132 +698,138 @@ void TCallPromise<ErrorType, void>::Accept()
 
 template<typename ErrorType>
 template<typename FuncType>
-auto TCallPromise<ErrorType, void>::Then(FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsPromisePtr<ErrorType, FuncType>
+auto TCallPromise<ErrorType, void>::Then(FuncType Func)
 {
-	using ReturnPromiseType = DeclReturnType(Func)::ElementType;
+	using ReturnPromiseType = std::invoke_result<FuncType>::type::ElementType;
 	TSharedPtr<ReturnPromiseType> Promise = ReturnPromiseType::Create();
 
-	Append(Promise, FAcceptDelegate::CreateLambda(
+	this->Append(Promise, FAcceptDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Promise->Merge(Func());
-		}));
+	{
+		Promise->Merge(Func());
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename FuncType>
-auto TCallPromise<ErrorType, void>::Then(FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsValuePtr<ErrorType, FuncType>
+auto TCallPromise<ErrorType, void>::Then(FuncType Func)
 {
-	using ReturnType = DeclReturnType(Func);
+	using ReturnType = std::invoke_result<FuncType>::type;
 	TCallPromisePtr<ErrorType, ReturnType> Promise = TCallPromise<ErrorType, ReturnType>::Create();
 
-	Append(Promise, FAcceptDelegate::CreateLambda(
+	this->Append(Promise, FAcceptDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Promise->Accept(Func());
-		}));
+	{
+		Promise->Accept(Func());
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename FuncType>
-auto TCallPromise<ErrorType, void>::Then(FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsVoidPtr<ErrorType, FuncType>
+auto TCallPromise<ErrorType, void>::Then(FuncType Func)
 {
 	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 
-	Append(Promise, FAcceptDelegate::CreateLambda(
+	this->Append(Promise, FAcceptDelegate::CreateLambda(
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Func();
-			Promise->Accept();
-		}));
+	{
+		Func();
+		Promise->Accept();
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename UserClass, typename FuncType>
-auto TCallPromise<ErrorType, void>::WeakThen(UserClass* Object, FuncType Func, EnableIfPromisePtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsPromisePtr<ErrorType, FuncType>
+auto TCallPromise<ErrorType, void>::WeakThen(UserClass* Object, FuncType Func)
 {
-	using ReturnPromiseType = DeclReturnType(Func)::ElementType;
+	using ReturnPromiseType = std::invoke_result<FuncType>::type::ElementType;
 	TSharedPtr<ReturnPromiseType> Promise = ReturnPromiseType::Create();
 
-	Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Promise->Merge(Func());
-		}));
+	{
+		Promise->Merge(Func());
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename UserClass, typename FuncType>
-auto TCallPromise<ErrorType, void>::WeakThen(UserClass* Object, FuncType Func, EnableIfValuePtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsValuePtr<ErrorType, FuncType>
+auto TCallPromise<ErrorType, void>::WeakThen(UserClass* Object, FuncType Func)
 {
-	using ReturnType = DeclReturnType(Func);
+	using ReturnType = std::invoke_result<FuncType>::type;
 	TCallPromisePtr<ErrorType, ReturnType> Promise = TCallPromise<ErrorType, ReturnType>::Create();
 
-	Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Promise->Accept(Func());
-		}));
+	{
+		Promise->Accept(Func());
+	}));
 
 	return Promise;
 }
 
 template<typename ErrorType>
 template<typename UserClass, typename FuncType>
-auto TCallPromise<ErrorType, void>::WeakThen(UserClass* Object, FuncType Func, EnableIfVoidPtr<ErrorType, DeclReturnType(Func)> sfinae)
+requires IsVoidPtr<ErrorType, FuncType>
+auto TCallPromise<ErrorType, void>::WeakThen(UserClass* Object, FuncType Func)
 {
 	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 
-	Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
+	this->Append(Promise, FAcceptDelegate::CreateWeakLambda(Object,
 		[Func = MoveTemp(Func), Promise]()
-		{
-			Func();
-			Promise->Accept();
-		}));
-	
+	{
+		Func();
+		Promise->Accept();
+	}));
+
 	return Promise;
 }
 
 template<typename ErrorType>
 void TCallPromise<ErrorType, void>::Append(TSharedPtr<TCallPromiseBase<ErrorType>> Promise, FAcceptDelegate Accept)
 {
-	if (bIsAccepted)
+	if (this->bIsAccepted)
 	{
 		Accept.ExecuteIfBound();
 		return;
 	}
-	
-	if (RejectError.IsSet())
+
+	if (this->RejectError.IsSet())
 	{
-		Promise->Reject(RejectError.GetValue());
+		Promise->Reject(this->RejectError.GetValue());
 		return;
 	}
 
-	if (bIsFinalized)
+	if (this->bIsFinalized)
 	{
 		Promise->Finalize();
 		return;
 	}
 
-	check(!AcceptDelegate.IsBound());
-	AcceptDelegate = MoveTemp(Accept);
+	check(!this->AcceptDelegate.IsBound());
+	this->AcceptDelegate = MoveTemp(Accept);
 
-	check(!RejectDelegate.IsBound());
-	RejectDelegate = FRejectDelegate::CreateLambda([Promise](const ErrorType& Error)
+	check(!this->RejectDelegate.IsBound());
+	this->RejectDelegate = TCallPromiseBase<ErrorType>::FRejectDelegate::CreateLambda([Promise](const ErrorType& Error)
 	{
 		Promise->Reject(Error);
 	});
 
-	check(!FinallyDelegate.IsBound());
-	FinallyDelegate = FFinallyDelegate::CreateLambda([Promise]()
+	check(!this->FinallyDelegate.IsBound());
+	this->FinallyDelegate = TCallPromiseBase<ErrorType>::FFinallyDelegate::CreateLambda([Promise]()
 	{
 		Promise->Finalize();
 	});
@@ -811,31 +846,31 @@ void TCallPromise<ErrorType, void>::Merge(TCallPromisePtr<ErrorType, void> Promi
 
 	if (Promise->RejectError.IsSet())
 	{
-		Reject(Promise->RejectError.GetValue());
+		this->Reject(Promise->RejectError.GetValue());
 		return;
 	}
 
 	if (Promise->bIsFinalized)
 	{
-		Finalize();
+		this->Finalize();
 		return;
 	}
 
 	check(!Promise->AcceptDelegate.IsBound());
-	Promise->AcceptDelegate = FAcceptDelegate::CreateLambda([this, SelfPromise = AsShared()]()
+	Promise->AcceptDelegate = FAcceptDelegate::CreateLambda([this, SelfPromise = this->AsShared()]()
 	{
 		// SelfPromise prevents deletion
 		Accept();
 	});
 
 	check(!Promise->RejectDelegate.IsBound());
-	Promise->RejectDelegate = FRejectDelegate::CreateLambda([SelfPromise = AsShared()](const ErrorType& Error)
+	Promise->RejectDelegate = TCallPromiseBase<ErrorType>::FRejectDelegate::CreateLambda([SelfPromise = this->AsShared()](const ErrorType& Error)
 	{
 		SelfPromise->Reject(Error);
 	});
 
 	check(!Promise->FinallyDelegate.IsBound());
-	Promise->FinallyDelegate = FFinallyDelegate::CreateLambda([SelfPromise = AsShared()]()
+	Promise->FinallyDelegate = TCallPromiseBase<ErrorType>::FFinallyDelegate::CreateLambda([SelfPromise = this->AsShared()]()
 	{
 		SelfPromise->Finalize();
 	});

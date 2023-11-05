@@ -1,6 +1,6 @@
 // Maintained by AngryLizard, netliz.net
 
-#include "Math/GMM.h"
+#include "Structures/GMM.h"
 
 // (2 pi) ^ 3
 #define TWOPI_P_3 248.0502134424f

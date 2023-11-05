@@ -1,4 +1,3 @@
-// Maintained by AngryLizard, netliz.net
 
 #include "Structures/Timestamp.h"
 

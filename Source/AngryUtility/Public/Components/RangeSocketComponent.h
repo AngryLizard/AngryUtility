@@ -8,7 +8,10 @@
 #include "RangeSocketComponent.generated.h"
 
 /**
- * 
+ * Utility component that can be attached to sockets and allows offsetting its own children.
+ * Also defines a radius that can be used for collision/interaction detection.
+ *
+ * Main application for this component is to define interaction points that are parented to sockets.
  */
 UCLASS(ClassGroup = (Custom), Blueprintable, meta = (BlueprintSpawnableComponent))
 class ANGRYUTILITY_API URangeSocketComponent : public UShapeComponent

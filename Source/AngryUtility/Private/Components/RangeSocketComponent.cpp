@@ -1,6 +1,7 @@
 
 
 #include "Components/RangeSocketComponent.h"
+#include "PhysicsEngine/BodySetup.h"
 
 const FName URangeSocketComponent::SocketName(TEXT("RangeSocket"));
 
@@ -75,7 +76,7 @@ bool InvalidateOrUpdateSphereBodySetup(BodySetupType& ShapeBodySetup, bool bUseA
 
 	// check for mal formed values
 	float Radius = SphereRadius;
-	if (Radius < KINDA_SMALL_NUMBER)
+	if (Radius < UE_KINDA_SMALL_NUMBER)
 	{
 		Radius = 0.1f;
 	}
@@ -123,7 +124,7 @@ void URangeSocketComponent::UpdateBodySetup()
 		}
 
 		ShapeBodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
-		ShapeBodySetup->AggGeom.SphereElems.Add(FKSphereElem());
+		AddShapeToGeomArray<FKSphereElem>();
 		ShapeBodySetup->bNeverNeedsCookedCollisionData = true;
 		bUseArchetypeBodySetup = false;	//We're making our own body setup, so don't use the archetype's.
 
@@ -142,7 +143,7 @@ void URangeSocketComponent::UpdateBodySetup()
 						//Update shape with the new body setup. Make sure to only update shapes owned by this body instance
 						if (BodyInstance.IsShapeBoundToBody(Shape))
 						{
-							FPhysicsInterface::SetUserData(Shape, (void*)ShapeBodySetup->AggGeom.SphereElems[0].GetUserData());
+							SetShapeToNewGeom<FKSphereElem>(Shape);
 						}
 					}
 				});
@@ -246,8 +247,8 @@ FPrimitiveSceneProxy* URangeSocketComponent::CreateSceneProxy()
 		{
 			return sizeof(*this) + GetAllocatedSize();
 		}
-		
-		uint32 GetAllocatedSize(void) const 
+
+		uint32 GetAllocatedSize(void) const
 		{
 			return FPrimitiveSceneProxy::GetAllocatedSize();
 		}

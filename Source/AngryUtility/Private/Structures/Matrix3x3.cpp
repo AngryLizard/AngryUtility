@@ -1,6 +1,6 @@
 // Maintained by AngryLizard, netliz.net
 
-#include "Math/Matrix3x3.h"
+#include "Structures/Matrix3x3.h"
 
 const FMatrix3x3 FMatrix3x3::Identity(FVector::ForwardVector, FVector::RightVector, FVector::UpVector);
 

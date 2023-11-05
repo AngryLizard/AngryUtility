@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Math/Matrix3x3.h"
+#include "Structures/Matrix3x3.h"
 
 #include "GMM.generated.h"
 
