@@ -664,7 +664,7 @@ TCallPromisePtr<ErrorType, void> TCallPromise<ErrorType, void>::Create()
 template<typename ErrorType>
 TCallPromisePtr<ErrorType, void> TCallPromise<ErrorType, void>::Accepted()
 {
-	TCallPromisePtr<ErrorType, void> Promise = this->Create();
+	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 	Promise->Accept();
 	return Promise;
 }
@@ -672,7 +672,7 @@ TCallPromisePtr<ErrorType, void> TCallPromise<ErrorType, void>::Accepted()
 template<typename ErrorType>
 TCallPromisePtr<ErrorType, void> TCallPromise<ErrorType, void>::Rejected(const ErrorType& Error)
 {
-	TCallPromisePtr<ErrorType, void> Promise = this->Create();
+	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 	Promise->Reject(Error);
 	return Promise;
 }

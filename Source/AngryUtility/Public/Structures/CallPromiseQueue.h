@@ -56,10 +56,10 @@ TCallPromisePtr<ErrorType, void> FCallPromiseQueue<ErrorType>::Await()
 {
 	if (IsReady())
 	{
-		return TWebPromise<void>::Accepted();
+		return TCallPromise<ErrorType, void>::Accepted();
 	}
 
-	TWebPromisePtr<void> Promise = TWebPromise<void>::Create();
+	TCallPromisePtr<ErrorType, void> Promise = TCallPromise<ErrorType, void>::Create();
 	NextQueue.Emplace(Promise);
 	return Promise;
 }

@@ -7,8 +7,9 @@ public class AngryUtility : ModuleRules
 	public AngryUtility(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		
-		PublicDependencyModuleNames.AddRange(
+        CppStandard = CppStandardVersion.Cpp20;
+
+        PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
