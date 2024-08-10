@@ -52,6 +52,7 @@ public:
 
 	//~ Begin USceneComponent Interface
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
+	virtual void CalcBoundingCylinder(float& CylinderRadius, float& CylinderHalfHeight) const override;
 	//~ End USceneComponent Interface
 
 	//~ Begin UPrimitiveComponent Interface.

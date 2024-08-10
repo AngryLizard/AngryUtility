@@ -63,10 +63,19 @@ void URangeSocketComponent::PostEditChangeProperty(FPropertyChangedEvent& Proper
 
 FBoxSphereBounds URangeSocketComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
-	return FBoxSphereBounds(FVector::ZeroVector, FVector(Radius), Radius).TransformBy(LocalToWorld);
+	// Radius does not depend on parent so we don't transform it
+	const float ScaledRadius = Radius * GetRelativeTransform().GetMaximumAxisScale();
+	return FBoxSphereBounds(LocalToWorld.GetLocation(), FVector(ScaledRadius), ScaledRadius);
 }
 
-// Copy from SphereComponent
+void URangeSocketComponent::CalcBoundingCylinder(float& CylinderRadius, float& CylinderHalfHeight) const
+{
+	// Radius does not depend on parent so we don't transform it
+	const float ScaledRadius = Radius * GetRelativeTransform().GetMaximumAxisScale();
+	CylinderRadius = ScaledRadius;
+	CylinderHalfHeight = CylinderRadius;
+}
+
 template <EShapeBodySetupHelper UpdateBodySetupAction, typename BodySetupType>
 bool InvalidateOrUpdateSphereBodySetup(BodySetupType& ShapeBodySetup, bool bUseArchetypeBodySetup, float SphereRadius)
 {
@@ -101,59 +110,31 @@ bool InvalidateOrUpdateSphereBodySetup(BodySetupType& ShapeBodySetup, bool bUseA
 
 void URangeSocketComponent::UpdateBodySetup()
 {
+	const float LocalScale = GetRelativeTransform().GetMaximumAxisScale();
+	if (LocalScale < SMALL_NUMBER)
+	{
+		return;
+	}
+
+	const float ParentScale = GetComponentTransform().GetMaximumAxisScale() / LocalScale;
+	if (ParentScale < SMALL_NUMBER)
+	{
+		return;
+	}
+
+	// Counteract parent scale and only apply local scale
+	const float ScaledRadius = Radius / ParentScale * LocalScale;
+
 	if (PrepareSharedBodySetup<URangeSocketComponent>())
 	{
-		bUseArchetypeBodySetup = InvalidateOrUpdateSphereBodySetup<EShapeBodySetupHelper::InvalidateSharingIfStale>(ShapeBodySetup, bUseArchetypeBodySetup, Radius);
+		bUseArchetypeBodySetup = InvalidateOrUpdateSphereBodySetup<EShapeBodySetupHelper::InvalidateSharingIfStale>(ShapeBodySetup, bUseArchetypeBodySetup, ScaledRadius);
 	}
 
-	if (!IsValid(ShapeBodySetup))
-	{
-		ShapeBodySetup = NewObject<UBodySetup>(this, NAME_None, RF_Transient);
-		if (GUObjectArray.IsDisregardForGC(this))
-		{
-			ShapeBodySetup->AddToRoot();
-		}
-
-		// If this component is in GC cluster, make sure we add the body setup to it to
-		ShapeBodySetup->AddToCluster(this);
-		// if we got created outside of game thread, but got added to a cluster, 
-		// we no longer need the Async flag
-		if (ShapeBodySetup->HasAnyInternalFlags(EInternalObjectFlags::Async) && GUObjectClusters.GetObjectCluster(ShapeBodySetup))
-		{
-			ShapeBodySetup->ClearInternalFlags(EInternalObjectFlags::Async);
-		}
-
-		ShapeBodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
-		AddShapeToGeomArray<FKSphereElem>();
-		ShapeBodySetup->bNeverNeedsCookedCollisionData = true;
-		bUseArchetypeBodySetup = false;	//We're making our own body setup, so don't use the archetype's.
-
-		//Update bodyinstance and shapes
-		BodyInstance.BodySetup = ShapeBodySetup;
-		{
-			if (BodyInstance.IsValidBodyInstance())
-			{
-				FPhysicsCommand::ExecuteWrite(BodyInstance.GetActorReferenceWithWelding(), [this](const FPhysicsActorHandle& Actor)
-				{
-					TArray<FPhysicsShapeHandle> Shapes;
-					BodyInstance.GetAllShapes_AssumesLocked(Shapes);
-
-					for (FPhysicsShapeHandle& Shape : Shapes)	//The reason we iterate is we may have multiple scenes and thus multiple shapes, but they are all pointing to the same geometry
-					{
-						//Update shape with the new body setup. Make sure to only update shapes owned by this body instance
-						if (BodyInstance.IsShapeBoundToBody(Shape))
-						{
-							SetShapeToNewGeom<FKSphereElem>(Shape);
-						}
-					}
-				});
-			}
-		}
-	}
+	CreateShapeBodySetupIfNeeded<FKSphereElem>();
 
 	if (!bUseArchetypeBodySetup)
 	{
-		InvalidateOrUpdateSphereBodySetup<EShapeBodySetupHelper::UpdateBodySetup>(ShapeBodySetup, bUseArchetypeBodySetup, Radius);
+		InvalidateOrUpdateSphereBodySetup<EShapeBodySetupHelper::UpdateBodySetup>(ShapeBodySetup, bUseArchetypeBodySetup, ScaledRadius);
 	}
 }
 
@@ -174,7 +155,7 @@ FPrimitiveSceneProxy* URangeSocketComponent::CreateSceneProxy()
 			, ShapeColor(InComponent->ShapeColor)
 			, LocalX(InComponent->SocketOffset.TransformVectorNoScale(FVector::ForwardVector))
 			, LocalY(InComponent->SocketOffset.TransformVectorNoScale(FVector::RightVector))
-			, Radius(InComponent->Radius)
+			, Radius(InComponent->Radius * InComponent->GetRelativeTransform().GetMaximumAxisScale())
 		{
 			bWillEverBeLit = false;
 		}
